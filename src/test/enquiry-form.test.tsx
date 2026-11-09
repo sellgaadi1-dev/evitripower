@@ -12,17 +12,26 @@ function type(label: string | RegExp, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 }
 
+// Custom dropdown: open the trigger, then pick the option from the list.
+function choose(label: string, option: string) {
+  fireEvent.click(screen.getByLabelText(label));
+  fireEvent.click(screen.getByRole("option", { name: option }));
+}
+
 function fillValid() {
   type("Full name", "Arjun Kale");
   type("Company / group", "Example Motors");
   type("Work email", "arjun@example.com");
   type("Phone", "8530508016");
-  type("You are a…", "Tier-1 supplier");
-  type("You need help with", "Homologation");
+  choose("You are a…", "Tier-1 supplier");
+  choose("You need help with", "Homologation");
   type("Your plans", "Electric buses for India from 2027.");
 }
 
 async function submit() {
+  // Let a just-closed dropdown hand focus back to its trigger first (Radix does this on a
+  // timer), as it always has by the time a person clicks Send.
+  await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: /send to the evt partners|try again/i }));
   });
@@ -34,6 +43,30 @@ describe("Enquiry form", () => {
   it("shows no errors before the visitor interacts", () => {
     render(<EnquiryForm />);
     expect(screen.queryByText(/please enter/i)).toBeNull();
+  });
+
+  it("uses custom dropdowns that show the choice and clear the error once picked", () => {
+    render(<EnquiryForm />);
+    const trigger = screen.getByLabelText("You are a…");
+    expect(trigger.tagName).toBe("BUTTON");
+    expect(trigger).toHaveAttribute("role", "combobox");
+    expect(trigger).toHaveTextContent("Select one");
+
+    // Opening and closing without choosing counts as visited → explains what is missing.
+    fireEvent.click(trigger);
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Indian business / automotive group",
+      "Global EV maker",
+      "Tier-1 supplier",
+      "Dealer group",
+      "Other",
+    ]);
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "Escape" });
+    expect(screen.getByText("Please select what best describes you.")).toBeVisible();
+
+    choose("You are a…", "Dealer group");
+    expect(trigger).toHaveTextContent("Dealer group");
+    expect(screen.queryByText("Please select what best describes you.")).toBeNull();
   });
 
   it("tells the visitor what is wrong while typing, and clears it once fixed", () => {

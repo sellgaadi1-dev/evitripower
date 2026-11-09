@@ -5,6 +5,11 @@ Object.defineProperty(window, "scrollTo", {
   value: () => {},
 });
 
+// jsdom lacks these; Radix Select (the form's custom dropdowns) calls them.
+Element.prototype.scrollIntoView ??= () => {};
+Element.prototype.hasPointerCapture ??= () => false;
+Element.prototype.releasePointerCapture ??= () => {};
+
 Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: (query: string) => ({

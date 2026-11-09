@@ -22,6 +22,14 @@ import {
 } from "@/lib/enquiry";
 import { enquiryEmailBody, enquiryEmailUrl } from "@/lib/enquiry-email";
 import { saveEnquiry } from "@/lib/enquiries.functions";
+import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const EMPTY: EnquiryValues = {
   name: "",
@@ -34,7 +42,7 @@ const EMPTY: EnquiryValues = {
 };
 
 type Status = "idle" | "submitting" | "success" | "error";
-type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+type Control = HTMLInputElement | HTMLTextAreaElement | HTMLButtonElement;
 
 const ALL_TOUCHED = Object.fromEntries(ENQUIRY_FIELDS.map((f) => [f, true])) as Record<
   EnquiryField,
@@ -75,6 +83,10 @@ export function EnquiryForm() {
     if (status === "error") setStatus("idle");
   }
 
+  function markTouched(field: EnquiryField) {
+    setTouched((t) => (t[field] ? t : { ...t, [field]: true }));
+  }
+
   function bind(field: EnquiryField) {
     const error = touched[field] ? errors[field] : undefined;
     return {
@@ -84,12 +96,64 @@ export function EnquiryForm() {
       ref: (el: Control | null) => {
         controls.current[field] = el;
       },
-      onChange: (e: ChangeEvent<Control>) => update(field, e.target.value),
-      onBlur: () => setTouched((t) => (t[field] ? t : { ...t, [field]: true })),
+      onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+        update(field, e.target.value),
+      onBlur: () => markTouched(field),
       "aria-invalid": error ? true : undefined,
       "aria-describedby": `enquiry-${field}-msg`,
       required: true,
     };
+  }
+
+  // Opening the list moves focus into it, which blurs the trigger; only count it as
+  // "visited" once the list has closed or focus leaves a closed trigger.
+  const openChoice = useRef<EnquiryField | null>(null);
+
+  function choice(field: "type" | "interest", options: readonly string[]) {
+    const state = stateOf(field);
+    return (
+      <Select
+        value={values[field]}
+        onValueChange={(v) => update(field, v)}
+        onOpenChange={(open) => {
+          openChoice.current = open ? field : null;
+          if (!open) markTouched(field);
+        }}
+        name={field}
+        required
+      >
+        <SelectTrigger
+          id={`enquiry-${field}`}
+          ref={(el) => {
+            controls.current[field] = el;
+          }}
+          onBlur={() => {
+            if (openChoice.current !== field) markTouched(field);
+          }}
+          aria-invalid={state === "invalid" ? true : undefined}
+          aria-describedby={`enquiry-${field}-msg`}
+          className={cn(
+            controlClass(state, "select"),
+            "h-auto cursor-pointer gap-2 text-left shadow-none data-placeholder:text-muted-foreground data-[state=open]:ring-2 data-[state=open]:ring-ring [&>span]:min-w-0 [&>span]:truncate",
+          )}
+        >
+          <SelectValue placeholder="Select one" />
+          {/* Status icon sits just left of the dropdown arrow. */}
+          {state !== "pristine" && <StatusIcon state={state} className="ml-auto" />}
+        </SelectTrigger>
+        <SelectContent className="rounded-lg border-border bg-card p-1 shadow-lg">
+          {options.map((o) => (
+            <SelectItem
+              key={o}
+              value={o}
+              className="cursor-pointer rounded-md py-2.5 pl-3 focus:bg-secondary focus:text-foreground data-[state=checked]:font-semibold data-[state=checked]:text-primary"
+            >
+              {o}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
   }
 
   function stateOf(field: EnquiryField) {
@@ -276,14 +340,7 @@ export function EnquiryForm() {
           state={stateOf("type")}
           error={errors.type}
         >
-          <select {...bind("type")} className={controlClass(stateOf("type"), "select")}>
-            <option value="" disabled>
-              Select one
-            </option>
-            {VISITOR_TYPES.map((o) => (
-              <option key={o}>{o}</option>
-            ))}
-          </select>
+          {choice("type", VISITOR_TYPES)}
         </Field>
         <Field
           label="You need help with"
@@ -292,14 +349,7 @@ export function EnquiryForm() {
           state={stateOf("interest")}
           error={errors.interest}
         >
-          <select {...bind("interest")} className={controlClass(stateOf("interest"), "select")}>
-            <option value="" disabled>
-              Select one
-            </option>
-            {INTERESTS.map((o) => (
-              <option key={o}>{o}</option>
-            ))}
-          </select>
+          {choice("interest", INTERESTS)}
         </Field>
       </div>
 
@@ -386,7 +436,8 @@ function controlClass(state: FieldState, kind: Kind = "input") {
   const base =
     // scroll-mt keeps a focused field clear of the sticky header.
     "w-full scroll-mt-28 rounded-md border bg-background px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2";
-  const pad = kind === "select" ? "pr-14" : "pr-9";
+  // Dropdowns draw their status icon inside the trigger, so need no room reserved for it.
+  const pad = kind === "select" ? "pr-3" : "pr-9";
   const tone =
     state === "invalid"
       ? "border-destructive focus:ring-destructive/30"
@@ -394,6 +445,14 @@ function controlClass(state: FieldState, kind: Kind = "input") {
         ? "border-primary/60 focus:ring-ring"
         : "border-input focus:ring-ring";
   return `${base} ${pad} ${tone}`;
+}
+
+function StatusIcon({ state, className }: { state: "valid" | "invalid"; className: string }) {
+  return state === "invalid" ? (
+    <CircleAlert className={`h-4 w-4 shrink-0 text-destructive ${className}`} aria-hidden />
+  ) : (
+    <CircleCheck className={`h-4 w-4 shrink-0 text-primary ${className}`} aria-hidden />
+  );
 }
 
 function Field({
@@ -416,7 +475,7 @@ function Field({
   children: ReactNode;
 }) {
   const shownError = state === "invalid" ? error : undefined;
-  const iconPos = `${kind === "select" ? "right-8" : "right-3"} ${kind === "textarea" ? "top-3" : "top-1/2 -translate-y-1/2"}`;
+  const iconPos = `pointer-events-none absolute right-3 ${kind === "textarea" ? "top-3" : "top-1/2 -translate-y-1/2"}`;
   return (
     <div>
       <label htmlFor={`enquiry-${field}`} className="mb-1.5 block text-sm font-semibold">
@@ -424,17 +483,8 @@ function Field({
       </label>
       <div className="relative">
         {children}
-        {state === "invalid" && (
-          <CircleAlert
-            className={`pointer-events-none absolute h-4 w-4 text-destructive ${iconPos}`}
-            aria-hidden
-          />
-        )}
-        {state === "valid" && (
-          <CircleCheck
-            className={`pointer-events-none absolute h-4 w-4 text-primary ${iconPos}`}
-            aria-hidden
-          />
+        {kind !== "select" && state !== "pristine" && (
+          <StatusIcon state={state} className={iconPos} />
         )}
       </div>
       <div className="mt-1 flex min-h-5 items-start justify-between gap-3 text-xs">
