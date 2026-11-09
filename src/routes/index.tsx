@@ -1,7 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { enquiryEmailUrl } from "@/lib/enquiry-email";
-import { enquiryFromForm, enquirySchema } from "@/lib/enquiry";
-import { saveEnquiry } from "@/lib/enquiries.functions";
+import { EnquiryForm } from "@/components/EnquiryForm";
 import logo from "@/assets/evt-logo.jpg.asset.json";
 import vasudev from "@/assets/evt-vasudev.jpg.asset.json";
 import tvc from "@/assets/evt-tvc.jpg.asset.json";
@@ -14,7 +12,7 @@ import g5 from "@/assets/evt-g5.jpg.asset.json";
 import g6 from "@/assets/evt-g6.jpg.asset.json";
 import g7 from "@/assets/evt-g7.jpg.asset.json";
 import g8 from "@/assets/evt-g8.jpg.asset.json";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 
 const TITLE = "EVTripower Solutions — EV & Automotive Consulting for India";
 const DESC =
@@ -113,28 +111,6 @@ function Index() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pFilter, setPFilter] = useState<"All" | PCat>("All");
   const [cFilter, setCFilter] = useState<"All" | Power>("All");
-
-  const [sending, setSending] = useState(false);
-
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget);
-    const body = ["Name", "Company", "Email", "Phone", "Type", "Interest", "Details"]
-      .map((k) => `${k}: ${f.get(k) ?? ""}`)
-      .join("\n");
-    setSending(true);
-    try {
-      // Record the enquiry; the email below still opens if storage is down or not configured.
-      await saveEnquiry({ data: enquirySchema.parse(enquiryFromForm(f)) });
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setSending(false);
-    }
-    window.location.href = enquiryEmailUrl(body);
-  }
-
-  const input = "w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring";
 
   return (
     <div className="min-h-screen">
@@ -366,24 +342,7 @@ function Index() {
               <a className="block hover:text-teal" href="https://www.evtripower.com/">www.EVTripower.com</a>
             </div>
           </div>
-          <form onSubmit={submit} className="space-y-4 rounded-xl bg-card p-8 text-card-foreground">
-            <h3 className="text-2xl">Request a diagnostic conversation</h3>
-            <p className="text-sm text-muted-foreground">A partner will respond personally.</p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <input required name="Name" placeholder="Name" className={input} />
-              <input name="Company" placeholder="Company / group" className={input} />
-              <input required type="email" name="Email" placeholder="Email" className={input} />
-              <input name="Phone" placeholder="Phone" className={input} />
-              <select name="Type" className={input}>
-                {["Indian business / automotive group", "Global EV maker", "Tier-1 supplier", "Dealer group", "Other"].map((o) => <option key={o}>{o}</option>)}
-              </select>
-              <select name="Interest" className={input}>
-                {["Bring an EV brand to India", "Localization / plant setup", "Homologation", "Dealer network & aftersales", "Partner brokering (China)", "Turnaround / interim leadership"].map((o) => <option key={o}>{o}</option>)}
-              </select>
-            </div>
-            <textarea name="Details" rows={4} placeholder="Category, market and timeline" className={input} />
-            <button disabled={sending} className="w-full rounded-full bg-accent px-6 py-4 font-display font-semibold text-accent-foreground hover:opacity-90 disabled:opacity-60">{sending ? "Sending…" : "Send to the EVT partners →"}</button>
-          </form>
+          <EnquiryForm />
         </div>
         <p className="border-t border-ink-foreground/15 py-6 text-center text-xs opacity-60">© {new Date().getFullYear()} EVTripower Solutions</p>
       </section>

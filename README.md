@@ -30,10 +30,15 @@ currently fails on the `overrides` entry in `package.json`.
    `bun.lock`, and the build auto-targets Vercel.
 2. In the Vercel project, open **Storage → Create Database → Neon** (free plan) and connect
    it to the project. This sets `DATABASE_URL`.
-3. Redeploy. Contact-form enquiries are now saved to the `enquiries` table (created
-   automatically on the first enquiry) and can be browsed from Neon's SQL editor or the
-   Vercel Storage tab. The enquiry email still opens as before; without `DATABASE_URL`
-   the site works and enquiries are simply not stored.
+3. Redeploy (environment variables only reach new deployments), then open
+   `/api/health`. It should return `{"ok":true,"database":"connected"}` and creates the
+   `enquiries` table if it is missing.
+
+Contact-form enquiries are saved to the `enquiries` table, which you can browse from the
+Vercel Storage tab or Neon's SQL editor. The form is public (no sign-in), validates every
+field as the visitor types, re-checks on the server, and ignores bots via a hidden
+honeypot field. If saving fails, the visitor is offered a pre-filled email to
+Team@evtripower.com instead, so no lead is lost.
 
 Images are mirrored into `public/__l5e/assets-v1/` so they load outside Lovable's
 hosting. If you add or replace an image in Lovable, copy the new file there too.
