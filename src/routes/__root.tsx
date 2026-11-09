@@ -93,7 +93,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      // EVTripower mark. Bump ?v= when the icon files change so browsers drop the cached one.
+      { rel: "icon", href: "/favicon.ico?v=2", sizes: "48x48" },
+      { rel: "icon", href: "/favicon.png?v=2", type: "image/png", sizes: "192x192" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png?v=2" },
     ],
   }),
   shellComponent: RootShell,
